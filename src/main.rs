@@ -1,3 +1,4 @@
+use std::time::Instant;
 use std::{
     fs,
     os::unix::process,
@@ -11,6 +12,7 @@ use macroquad::{
     audio::{PlaySoundParams, Sound, load_sound, play_sound},
     prelude::{scene::clear, *},
 };
+const FRAME_DURATION: f32 = 1.0 / 24.; // 30 FPS
 fn conf() -> Conf {
     Conf {
         window_height: 360,
@@ -34,21 +36,33 @@ async fn main() {
             .and_then(|n| n.parse::<u32>().ok())
             .unwrap_or(0)
     });
+
     let mut idx = 0;
     play_sound(&song, PlaySoundParams::default());
+
     loop {
+        let frame_start = Instant::now(); // track frame start
+
         clear_background(WHITE);
-        println!("loading texture {}/{}", idx, images_paths.len());
+
         let texture = Texture2D::from_file_with_format(
             fs::read(&images_paths[idx]).unwrap().as_slice(),
             Some(ImageFormat::Png),
         );
-
         draw_texture(&texture, 0., 0., WHITE);
         idx += 1;
-
-        thread::sleep(Duration::from_millis(10));
+        if idx >= images_paths.len() {
+            break;
+        }
 
         next_frame().await;
+        println!("{}/{}", idx, FRAMES);
+        // enforce 30 FPS
+        let elapsed = frame_start.elapsed();
+        if elapsed.as_secs_f32() < FRAME_DURATION {
+            std::thread::sleep(Duration::from_secs_f32(
+                FRAME_DURATION - elapsed.as_secs_f32(),
+            ));
+        }
     }
 }
